@@ -1,41 +1,37 @@
-from datetime import date
-
 import requests
 from bs4 import BeautifulSoup
 
-url_params = "?" \
-             "UniDbQuery.Posted=True&" \
-             "UniDbQuery.From=17.09.2013&" \
-             "UniDbQuery.To=15.05.2023"
 
+class CBRParser:
+    BASE_URL = "https://cbr.ru"
 
-def today_human_date():
-    today = date.today().strftime("%d.%m.%Y")
-    return today
+    def __init__(self):
+        self.soup = None
 
+    def get_cbr_page_soup(self, from_date: str, to_date: str) -> BeautifulSoup:
+        params = f"?UniDbQuery.Posted=True" \
+                 f"&UniDbQuery.From={from_date}" \
+                 f"&UniDbQuery.To={to_date}"
+        url = f"{self.BASE_URL}/hd_base/KeyRate/{params}"
+        r = requests.get(url)
+        r.raise_for_status()
+        return BeautifulSoup(r.text, 'html.parser')
 
-def get_page():
-    url = f"https://www.cbr.ru/hd_base/KeyRate/?" \
-          f"UniDbQuery.Posted=True&" \
-          f"UniDbQuery.From=17.09.2013&" \
-          f"UniDbQuery.To={today_human_date()}"
-    r = requests.get(url)
+    def parse_cbr_data(self, soup: BeautifulSoup):
+        table_cells = soup.find('table').find_all('td')
+        dates = [d.text for i, d in enumerate(table_cells) if i % 2 == 0]
+        rates = [d.text for i, d in enumerate(table_cells) if i % 2 != 0]
+        return list(zip(dates, rates))
 
-    return r.text
+    def start(self):
+        cbr_soup = self.get_cbr_page_soup('17.09.2013', '17.05.2024')
+        parsed_data = self.parse_cbr_data(cbr_soup)
 
 
 def main():
-    html = get_page()
-    soup = BeautifulSoup(html, "html.parser")
-    raw_data = [i.text for i in soup.find("table", {"class": "data"}).find_all("td")]
-    print("stop")
-    dates_1 = raw_data[::2]
-    rates_1 = raw_data[1::2]
-    dates_2 = [data for i, data in enumerate(raw_data) if i % 2 == 0]
-    rates_2 = [data for i, data in enumerate(raw_data) if i % 2 != 0]
-    data = list(zip(dates_1, rates_1))
+    parser = CBRParser()
+    parser.start()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
-    pass
